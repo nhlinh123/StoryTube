@@ -1,0 +1,4 @@
+# Chỉ có một thư viện ngoài: edge-tts (đã giải nén sẵn trong vendor/).
+# Nếu cần cài lại trên máy khác:
+#   python -m pip install --target vendor edge-tts
+edge-tts==7.3.1

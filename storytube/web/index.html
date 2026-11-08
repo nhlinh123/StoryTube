@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StoryTube — truyện, giọng đọc, video đa tỉ lệ</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+</head>
+<body>
+<aside id="sidebar">
+  <div class="brand">
+    <div class="mark">ST</div>
+    <div><b>StoryTube</b><span>truyện → giọng đọc → video</span></div>
+  </div>
+  <button class="primary" data-act="new-project">+ Truyện mới</button>
+  <div id="project-list"></div>
+  <div class="hint" id="sysinfo"></div>
+</aside>
+
+<main>
+  <header id="topbar">
+    <div>
+      <h1 id="project-title">Chọn một truyện</h1>
+      <div class="meta" id="project-meta"></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="flex" id="topbar-actions"></div>
+  </header>
+  <nav class="tabs" id="tabs"></nav>
+  <section id="view"></section>
+</main>
+
+<div id="jobbar">
+  <span id="job-label">Đang xử lý…</span>
+  <div class="progress"><i id="job-fill"></i></div>
+  <span id="job-pct" class="mono">0%</span>
+  <button class="small ghost" data-act="close-job" style="display:none">Ẩn</button>
+</div>
+
+<dialog id="dlg-project">
+  <form method="dialog" id="form-project">
+    <div class="dialog-head"><h2>Truyện mới</h2></div>
+    <div class="dialog-body">
+      <div><label>Tên truyện</label><input type="text" name="title" required placeholder="Người giữ đèn biển"></div>
+      <div class="form-grid">
+        <div><label>Thể loại</label><input type="text" name="genre" placeholder="tâm lý - kỳ bí"></div>
+        <div><label>Cấp AI (0-5)</label>
+          <select name="level">
+            <option value="1">1 · Người đọc</option>
+            <option value="2">2 · Biên tập</option>
+            <option value="3">3 · Đồng tác giả</option>
+            <option value="4" selected>4 · Soạn nháp</option>
+            <option value="5">5 · Tác nhân (chạy cả pipeline)</option>
+          </select>
+        </div>
+      </div>
+      <div><label>Ý tưởng thô (càng cụ thể càng tốt)</label>
+        <textarea name="idea" rows="4" placeholder="Một người giữ đèn biển ở Côn Đảo nhận được lá thư của người đã chết 10 năm trước..."></textarea></div>
+      <p class="hint">Truyện lưu trong SQLite trên máy bạn: <span class="mono">data/storytube.db</span>. AI chỉ chạy khi bạn bấm nút và đã cấu hình API key.</p>
+    </div>
+    <div class="dialog-foot">
+      <button value="cancel" class="ghost">Huỷ</button>
+      <button value="create" class="primary">Tạo truyện</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-settings">
+  <div class="dialog-head">
+    <h2>Cài đặt</h2>
+    <div class="spacer" style="flex:1"></div>
+    <button class="small ghost" data-act="close-settings">Đóng</button>
+  </div>
+  <div class="dialog-body" id="settings-body"></div>
+  <div class="dialog-foot">
+    <button class="ghost" data-act="test-llm">Kiểm tra DeepSeek</button>
+    <button class="ghost" data-act="test-eleven">Kiểm tra ElevenLabs</button>
+    <button class="primary" data-act="save-settings">Lưu cài đặt</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-autopilot">
+  <form method="dialog" id="form-autopilot">
+    <div class="dialog-head">
+      <h2>Tự động ra video</h2>
+      <div class="spacer" style="flex:1"></div>
+      <button value="cancel" class="small ghost">Đóng</button>
+    </div>
+    <div class="dialog-body">
+      <div class="form-grid">
+        <div><label>Nguồn truyện</label>
+          <select id="ap-source">
+            <option value="all">Tất cả chương</option>
+            <option value="chapter">Một chương</option>
+            <option value="text">Văn bản dán (truyện có sẵn)</option>
+          </select>
+        </div>
+        <div><label>Chương</label><select id="ap-chapter"></select></div>
+        <div class="full" id="ap-text-wrap" style="display:none">
+          <label>Dán truyện đầy đủ</label>
+          <textarea id="ap-text" rows="6" placeholder="Dán nguyên truyện ngắn vào đây — tool sẽ đọc đúng văn bản này, không gọi AI…"></textarea>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div><label>Xử lý văn bản</label>
+          <select id="ap-mode">
+            <option value="verbatim">Giữ nguyên văn (0 token AI)</option>
+            <option value="shorten">Rút gọn bằng AI (tốn token)</option>
+          </select>
+        </div>
+        <div><label>Chia cảnh</label>
+          <select id="ap-split">
+            <option value="1">Có — chia thành nhiều cảnh</option>
+            <option value="0">Không — cả truyện thành 1 cảnh</option>
+          </select>
+        </div>
+        <div id="ap-syl-wrap"><label>Âm tiết mỗi cảnh (khi giữ nguyên văn)</label><input type="number" id="ap-syllables" value="32" min="12" max="120"></div>
+        <div id="ap-target-wrap"><label>Độ dài video mục tiêu (khi rút gọn)</label>
+          <select id="ap-target">
+            <option value="45">45 giây</option><option value="60">60 giây</option>
+            <option value="90" selected>90 giây</option><option value="120">2 phút</option><option value="180">3 phút</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div><label>Nền</label>
+          <select id="ap-bg">
+            <option value="video">Video nền có sẵn</option>
+            <option value="image">Ảnh AI (ElevenLabs/Pollinations)</option>
+            <option value="gradient">Nền gradient tự sinh</option>
+          </select>
+        </div>
+        <div><label>Cách chọn video nền</label>
+          <select id="ap-bg-source">
+            <option value="random">Ngẫu nhiên (mỗi cảnh một video)</option>
+            <option value="fixed">Một video cố định</option>
+          </select>
+        </div>
+        <div class="full" id="ap-bgfile-wrap"><label>File nền</label><select id="ap-bg-file"></select></div>
+        <div><label>Độ mờ lớp phủ (0 = không phủ)</label>
+          <input type="range" id="ap-opacity" min="0" max="0.9" step="0.05" value="0.5">
+        </div>
+        <div><label>Màu lớp phủ</label><input type="color" id="ap-color" value="#000000" style="height:34px;padding:2px"></div>
+        <div><label>Vị trí phụ đề</label>
+          <select id="ap-pos">
+            <option value="tiktok">TikTok / Reels (trên thanh UI)</option>
+            <option value="youtube">YouTube (lower-third)</option>
+            <option value="center">Giữa khung</option>
+            <option value="upper">Phía trên</option>
+          </select>
+        </div>
+        <div><label>Chất lượng</label>
+          <select id="ap-quality"><option value="high">Cao (1080p)</option><option value="draft">Nháp (720p)</option></select>
+        </div>
+        <div><label>Giọng đọc</label><select id="ap-voice"></select></div>
+        <div><label>Tỉ lệ xuất</label><select id="ap-ratios">
+          <option value="9:16">9:16 · TikTok/Reels</option>
+          <option value="9:16,1:1,16:9">9:16 + 1:1 + 16:9</option>
+          <option value="16:9">16:9 · YouTube</option>
+        </select></div>
+      </div>
+      <p class="hint" id="ap-note">Giữ nguyên văn = chia cảnh bằng code, không gọi AI. Rút gọn = AI viết lại kịch bản ngắn hơn.</p>
+    </div>
+    <div class="dialog-foot">
+      <button class="primary" data-act="run-autopilot">Chạy</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toasts"></div>
+<script src="/app.js"></script>
+</body>
+</html>

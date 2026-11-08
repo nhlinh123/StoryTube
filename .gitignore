@@ -1,0 +1,19 @@
+# Bỏ qua dữ liệu chạy thật: DB, truyện, ảnh, video render, log
+data/
+
+# Thư viện cài kèm (pip install --target vendor) và wheel tải sẵn
+vendor/
+wheels/
+
+# Tạm
+.tmp/
+__pycache__/
+*.pyc
+*.log
+
+# Bí mật
+.env
+config.json
+
+# Kết quả xuất tay
+story.md
